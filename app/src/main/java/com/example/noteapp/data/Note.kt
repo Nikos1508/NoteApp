@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class Note(
     val id: String,
     val title: String,
-    val content: String,
-    val created_at: String
+    val content: String? = null,
+    val created_at: String? = null,
+    val updated_at: String? = null
 )

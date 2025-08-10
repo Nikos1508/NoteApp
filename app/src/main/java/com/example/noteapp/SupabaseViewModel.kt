@@ -52,4 +52,11 @@ class SupabaseViewModel {
             setBody(mapOf("title" to title, "content" to htmlContent))
         }
     }
+
+    suspend fun deleteNote(id: String) {
+        client.delete("$baseUrl/rest/v1/notes?id=eq.$id") {
+            header("apikey", apiKey)
+            header("Authorization", "Bearer $apiKey")
+        }
+    }
 }
