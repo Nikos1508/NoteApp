@@ -18,14 +18,21 @@ import kotlinx.coroutines.launch
 fun NoteEditScreen(noteId: String, navBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val service = remember { SupabaseViewModel() }
+
     var title by remember { mutableStateOf("") }
     var htmlContent by remember { mutableStateOf("") }
+    var editTextRef by remember { mutableStateOf<android.widget.EditText?>(null) }
 
+    // Polling every 3s for updates
     LaunchedEffect(noteId) {
         if (noteId != "new") {
-            val note = service.getNoteById(noteId)
-            title = note.title
-            htmlContent = note.content
+            while (true) {
+                val note = service.getNoteById(noteId)
+                title = note.title
+                htmlContent = note.content
+                editTextRef?.setText(Html.fromHtml(note.content, Html.FROM_HTML_MODE_COMPACT))
+                kotlinx.coroutines.delay(3000)
+            }
         }
     }
 
@@ -41,7 +48,12 @@ fun NoteEditScreen(noteId: String, navBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -53,21 +65,74 @@ fun NoteEditScreen(noteId: String, navBack: () -> Unit) {
 
             // Formatting buttons
             Row {
-                Button(onClick = { htmlContent += "<b>Bold</b>" }) { Text("B") }
+                Button(onClick = {
+                    editTextRef?.apply {
+                        val start = selectionStart
+                        val end = selectionEnd
+                        if (start < end) {
+                            val selected = text.substring(start, end)
+                            text.replace(start, end, Html.fromHtml("<b>$selected</b>", Html.FROM_HTML_MODE_COMPACT))
+                            htmlContent = Html.toHtml(text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE)
+                        }
+                    }
+                }) { Text("B") }
+
                 Spacer(Modifier.width(4.dp))
-                Button(onClick = { htmlContent += "<i>Italic</i>" }) { Text("I") }
+
+                Button(onClick = {
+                    editTextRef?.apply {
+                        val start = selectionStart
+                        val end = selectionEnd
+                        if (start < end) {
+                            val selected = text.substring(start, end)
+                            text.replace(start, end, Html.fromHtml("<i>$selected</i>", Html.FROM_HTML_MODE_COMPACT))
+                            htmlContent = Html.toHtml(text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE)
+                        }
+                    }
+                }) { Text("I") }
+
                 Spacer(Modifier.width(4.dp))
-                Button(onClick = { htmlContent += "<u>Underline</u>" }) { Text("U") }
+
+                Button(onClick = {
+                    editTextRef?.apply {
+                        val start = selectionStart
+                        val end = selectionEnd
+                        if (start < end) {
+                            val selected = text.substring(start, end)
+                            text.replace(start, end, Html.fromHtml("<u>$selected</u>", Html.FROM_HTML_MODE_COMPACT))
+                            htmlContent = Html.toHtml(text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE)
+                        }
+                    }
+                }) { Text("U") }
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // Preview HTML
-            AndroidView(factory = { context ->
-                TextView(context).apply {
-                    text = Html.fromHtml(htmlContent, Html.FROM_HTML_MODE_COMPACT)
-                }
-            })
+            // Full-screen editable content
+            AndroidView(
+                factory = { context ->
+                    android.widget.EditText(context).apply {
+                        setText(Html.fromHtml(htmlContent, Html.FROM_HTML_MODE_COMPACT))
+                        setPadding(16, 16, 16, 16)
+                        isSingleLine = false
+                        minLines = 10
+                        maxLines = Int.MAX_VALUE
+                        setHorizontallyScrolling(false)
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        editTextRef = this
+
+                        addTextChangedListener(object : android.text.TextWatcher {
+                            override fun afterTextChanged(s: android.text.Editable?) {
+                                htmlContent = Html.toHtml(s, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE)
+                            }
+                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                        })
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+            )
 
             Spacer(Modifier.height(8.dp))
 
